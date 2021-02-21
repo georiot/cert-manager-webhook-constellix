@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "cert-manager-webhook-ns1.fullname" . }}
+  name: {{ include "cert-manager-webhook-constellix.fullname" . }}
   labels:
-    app: {{ include "cert-manager-webhook-ns1.name" . }}
-    chart: {{ include "cert-manager-webhook-ns1.chart" . }}
+    app: {{ include "cert-manager-webhook-constellix.name" . }}
+    chart: {{ include "cert-manager-webhook-constellix.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: {{ include "cert-manager-webhook-ns1.name" . }}
+      app: {{ include "cert-manager-webhook-constellix.name" . }}
       release: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: {{ include "cert-manager-webhook-ns1.name" . }}
+        app: {{ include "cert-manager-webhook-constellix.name" . }}
         release: {{ .Release.Name }}
     spec:
-      serviceAccountName: {{ include "cert-manager-webhook-ns1.fullname" . }}
+      serviceAccountName: {{ include "cert-manager-webhook-constellix.fullname" . }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -54,7 +54,7 @@ spec:
       volumes:
         - name: certs
           secret:
-            secretName: {{ include "cert-manager-webhook-ns1.servingCertificate" . }}
+            secretName: {{ include "cert-manager-webhook-constellix.servingCertificate" . }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{ toYaml . | nindent 8 }}

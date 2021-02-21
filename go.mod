@@ -1,10 +1,10 @@
-module github.com/ns1/cert-manager-webhook-ns1
+module github.com/ns1/cert-manager-webhook-constellix
 
-go 1.13
+go 1.15
 
 require (
+	github.com/Constellix/constellix-go-client v1.0.12
 	github.com/jetstack/cert-manager v0.13.0
-	gopkg.in/ns1/ns1-go.v2 v2.2.0
 	k8s.io/apiextensions-apiserver v0.17.0
 	k8s.io/apimachinery v0.17.0
 	k8s.io/client-go v0.17.0

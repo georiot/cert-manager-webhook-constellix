@@ -4,14 +4,14 @@
 # inform cert-manager of where to send ChallengePayload resources in order to
 # solve the DNS01 challenge.
 # Users should not generally need to edit the groupName.
-groupName: acme.nsone.net
+groupName: acme.constellix.com
 
 certManager:
   namespace: cert-manager
   serviceAccountName: cert-manager
 
 image:
-  repository: ns1inc/cert-manager-webhook-ns1
+  repository: bpicio/cert-manager-webhook-constellix
   tag: latest
   pullPolicy: Always
 

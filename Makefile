@@ -1,6 +1,6 @@
-IMAGE_NAME := cert-manager-webhook-ns1
+IMAGE_NAME := cert-manager-webhook-constellix
 IMAGE_TAG := latest
-REPO_NAME := ns1inc
+REPO_NAME := bpicio
 
 OUT := $(shell pwd)/_out
 
@@ -25,10 +25,10 @@ push:
 #
 # Ensure version is updated in Chart.yaml
 # Run `make helm`
-# Check and commit the resuls, including the tar.gz
+# Check and commit the results, including the tar.gz
 helm:
 	helm package deploy/$(IMAGE_NAME)/ -d docs/
-	helm repo index docs --url https://ns1.github.io/cert-manager-webhook-ns1 --merge docs/index.yaml
+	helm repo index docs --url https://bpicio.github.io/cert-manager-webhook-constellix --merge docs/index.yaml
 
 rendered-manifest.yaml:
 	helm template \

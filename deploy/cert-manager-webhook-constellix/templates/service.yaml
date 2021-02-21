@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "cert-manager-webhook-ns1.fullname" . }}
+  name: {{ include "cert-manager-webhook-constellix.fullname" . }}
   labels:
-    app: {{ include "cert-manager-webhook-ns1.name" . }}
-    chart: {{ include "cert-manager-webhook-ns1.chart" . }}
+    app: {{ include "cert-manager-webhook-constellix.name" . }}
+    chart: {{ include "cert-manager-webhook-constellix.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 spec:
@@ -15,5 +15,5 @@ spec:
       protocol: TCP
       name: https
   selector:
-    app: {{ include "cert-manager-webhook-ns1.name" . }}
+    app: {{ include "cert-manager-webhook-constellix.name" . }}
     release: {{ .Release.Name }}

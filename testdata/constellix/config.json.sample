@@ -1,0 +1,8 @@
+{
+    "apiKeySecretRef": {
+      "name": "constellix-credentials",
+      "key": "apiKey",
+      "secret": "secretKey"
+    },
+    "insecure": false
+}

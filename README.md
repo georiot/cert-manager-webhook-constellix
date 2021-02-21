@@ -1,8 +1,6 @@
-# NS1 Webhook for Cert Manager
+# Constellix Webhook for Cert Manager
 
-> This project is in [MAINTENANCE](https://github.com/ns1/community/blob/master/project_status/MAINTENANCE.md) mode
-
-This is a webhook solver for [NS1](http://ns1.com), for use with cert-manager,
+This is a webhook solver for [Constellix](https://constellix.com), for use with cert-manager,
 to solve ACME DNS01 challenges.
 
 Tested with kubernetes v1.15.7, v1.16.2, and v1.17.0
@@ -22,17 +20,17 @@ Tested with cert-manager v0.13.0 and v1.0.3
 
 1. Install the chart with helm
 
-We have a [helm repo](https://ns1.github.io/cert-manager-webhook-ns1/) set up,
+We have a [helm repo](https://constellix.github.io/cert-manager-webhook-constellix/) set up,
 so you can use that, or you can install directly from source:
 
 ```bash
-$ helm install --namespace cert-manager cert-manager-webhook-ns1 ./deploy/cert-manager-webhook-ns1
+$ helm install --namespace cert-manager cert-manager-webhook-constellix ./deploy/cert-manager-webhook-constellix
 ```
 
-2. Populate a secret with your NS1 API Key
+2. Populate a secret with your Constellix API Key and Secret Key
 
 ```bash
-$ kubectl --namespace cert-manager create secret generic ns1-credentials --from-literal=apiKey='Your NS1 API Key'
+$ kubectl --namespace cert-manager create secret generic constellix-credentials --from-literal=apiKey='Your Constellix API Key'
 ```
 
 3. We need to grant permission for service account to get the secret. Copy the
@@ -49,25 +47,25 @@ Note that it may make more sense in your setup to use a `ClusterRole` and
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: cert-manager-webhook-ns1:secret-reader
+  name: cert-manager-webhook-constellix:secret-reader
 rules:
 - apiGroups: [""]
   resources: ["secrets"]
-  resourceNames: ["ns1-credentials"]
+  resourceNames: ["constellix-credentials"]
   verbs: ["get", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: cert-manager-webhook-ns1:secret-reader
+  name: cert-manager-webhook-constellix:secret-reader
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: cert-manager-webhook-ns1:secret-reader
+  name: cert-manager-webhook-constellix:secret-reader
 subjects:
   - apiGroup: ""
     kind: ServiceAccount
-    name: cert-manager-webhook-ns1
+    name: cert-manager-webhook-constellix
 ```
 
 ## Configuration
@@ -79,11 +77,11 @@ $ kubectl --namespace cert-manager apply -f my_resource.yaml
 ```
 
 Note that we use the `cert-manager` namespace, but it may make more sense in
-your setup to hame more nuanced namespace management.
+your setup to same more nuanced namespace management.
 
 1. Create Issuer(s), we'll use `letsencrypt` for example. We'll use
 `ClusterIssuer` here, which will be available accross namespaces. You may
-prefer to use `Issuer`. This is where `NS1` API options are set (`endpoint`,
+prefer to use `Issuer`. This is where `Constellix` API options are set (`endpoint`,
 `ignoreSSL`).
 
 Staging issuer (**optional**):
@@ -108,15 +106,17 @@ spec:
     solvers:
     - dns01:
         webhook:
-          groupName: acme.nsone.net
-          solverName: ns1
+          groupName: acme.constellix.com
+          solverName: constellix
           config:
             apiKeySecretRef:
               key: apiKey
-              name: ns1-credentials
-            # Replace this with your NS1 API endpoint if not using "managed"
-            endpoint: "https://api.nsone.net/v1/"
-            ignoreSSL: false
+              name: constellix-credentials
+            secretKeySecretRef:
+              key: secretKey
+              name: constellix-credentials
+            zoneId: 1234
+            insecure: false
 ```
 
 Production issuer:
@@ -141,15 +141,17 @@ spec:
     solvers:
     - dns01:
         webhook:
-          groupName: acme.nsone.net
-          solverName: ns1
+          groupName: acme.constellix.com
+          solverName: constellix
           config:
             apiKeySecretRef:
               key: apiKey
-              name: ns1-credentials
-            # Replace this with your NS1 API endpoint if not using "managed"
-            endpoint: "https://api.nsone.net/v1/"
-            ignoreSSL: false
+              name: constellix-credentials
+            secretKeySecretRef:
+              key: secretKey
+              name: constellix-credentials
+            zoneId: 1234
+            insecure: false
 ```
 
 2. Test things by issuing a certificate. This example requests a cert for
@@ -184,7 +186,7 @@ definition. A simple ingress example is below with pertinent areas bolded. We
 use the `ingress-nginx` ingress controller, but it should be the same idea for
 any ingress.
 
-You do of course, need to set up an `A` Record in `NS1` connecting the domain
+You do of course, need to set up an `A` Record in `Constellix` connecting the domain
 to the external IP of the ingress controller's LoadBalancer service. In the
 example below the domain would be `my-app.example.com`.
 
@@ -214,7 +216,7 @@ spec:
 
 If things aren't working, check the logs in the main `cert-manager` pod first,
 they are pretty communicative. Check logs from the other `cert-manager-*` pods
-and the `cert-manager-webhook-ns1` pod.
+and the `cert-manager-webhook-constellix` pod.
 
 If you've generated a `Certificate` but no `CertificateRequest` is generated,
 the main `cert-manager` pod logs should show why any action was skipped.
@@ -239,7 +241,7 @@ else they will have undetermined behaviour when used with cert-manager.
 modifying a DNS01 webhook.**
 
 The tests are "live" and require a functioning, DNS-accessible zone, as well as
-credentials for the NS1 API. The tests will create (and remove) a TXT record
+credentials for the Constellix API. The tests will create (and remove) a TXT record
 for the test zone.
 
 1. Prepare testing environment by running the `fetch-test-binaries` script:
@@ -248,9 +250,9 @@ for the test zone.
 $ scripts/fetch-test-binaries.sh
 ```
 
-2. See the `README` in `testdata/ns1` and copy/edit the files as needed.
+2. See the `README` in `testdata/constellix` and copy/edit the files as needed.
 
-3. Run the tests with `TEST_ZONE_NAME` set to your live, NS1-controlled zone:
+3. Run the tests with `TEST_ZONE_NAME` set to your live, Constellix-controlled zone:
 
 ```bash
 $ TEST_ZONE_NAME=example.com. go test .
@@ -264,5 +266,5 @@ the Helm repo.
 ## Contributions
 
 Pull Requests and issues are welcome. See the
-[NS1 Contribution Guidelines](https://github.com/ns1/community/blob/master/Contributing.md)
+[Contellix Contribution Guidelines](https://github.com/constellix/community/blob/master/Contributing.md)
 for more information.

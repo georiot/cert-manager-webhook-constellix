@@ -2,7 +2,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "cert-manager-webhook-ns1.name" -}}
+{{- define "cert-manager-webhook-constellix.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
@@ -11,7 +11,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "cert-manager-webhook-ns1.fullname" -}}
+{{- define "cert-manager-webhook-constellix.fullname" -}}
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
@@ -27,22 +27,22 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "cert-manager-webhook-ns1.chart" -}}
+{{- define "cert-manager-webhook-constellix.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
-{{- define "cert-manager-webhook-ns1.selfSignedIssuer" -}}
-{{ printf "%s-selfsign" (include "cert-manager-webhook-ns1.fullname" .) }}
+{{- define "cert-manager-webhook-constellix.selfSignedIssuer" -}}
+{{ printf "%s-selfsign" (include "cert-manager-webhook-constellix.fullname" .) }}
 {{- end -}}
 
-{{- define "cert-manager-webhook-ns1.rootCAIssuer" -}}
-{{ printf "%s-ca" (include "cert-manager-webhook-ns1.fullname" .) }}
+{{- define "cert-manager-webhook-constellix.rootCAIssuer" -}}
+{{ printf "%s-ca" (include "cert-manager-webhook-constellix.fullname" .) }}
 {{- end -}}
 
-{{- define "cert-manager-webhook-ns1.rootCACertificate" -}}
-{{ printf "%s-ca" (include "cert-manager-webhook-ns1.fullname" .) }}
+{{- define "cert-manager-webhook-constellix.rootCACertificate" -}}
+{{ printf "%s-ca" (include "cert-manager-webhook-constellix.fullname" .) }}
 {{- end -}}
 
-{{- define "cert-manager-webhook-ns1.servingCertificate" -}}
-{{ printf "%s-webhook-tls" (include "cert-manager-webhook-ns1.fullname" .) }}
+{{- define "cert-manager-webhook-constellix.servingCertificate" -}}
+{{ printf "%s-webhook-tls" (include "cert-manager-webhook-constellix.fullname" .) }}
 {{- end -}}

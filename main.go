@@ -1,11 +1,13 @@
 package main
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	"github.com/Constellix/constellix-go-client/client"
+	"github.com/Constellix/constellix-go-client/models"
+	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
@@ -17,9 +19,6 @@ import (
 	"github.com/jetstack/cert-manager/pkg/acme/webhook/cmd"
 	"github.com/jetstack/cert-manager/pkg/issuer/acme/dns/util"
 
-	ns1API "gopkg.in/ns1/ns1-go.v2/rest"
-	ns1DNS "gopkg.in/ns1/ns1-go.v2/rest/model/dns"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,22 +29,22 @@ func main() {
 		panic("GROUP_NAME must be specified")
 	}
 
-	// This will register our NS1 DNS provider with the webhook serving
+	// This will register our Constellix DNS provider with the webhook serving
 	// library, making it available as an API under the provided groupName.
 	cmd.RunWebhookServer(groupName,
-		&ns1DNSProviderSolver{},
+		&constellixDNSProviderSolver{},
 	)
 }
 
-// ns1DNSProviderSolver implements the logic needed to 'present' an ACME
+// constellixDNSProviderSolver implements the logic needed to 'present' an ACME
 // challenge TXT record. To do so, it implements the
 // `github.com/jetstack/cert-manager/pkg/acme/webhook.Solver` interface.
-type ns1DNSProviderSolver struct {
-	k8sClient *kubernetes.Clientset
-	ns1Client *ns1API.Client
+type constellixDNSProviderSolver struct {
+	k8sClient        *kubernetes.Clientset
+	constellixClient *client.Client
 }
 
-// ns1DNSProviderConfig is a structure that is used to decode into when
+// constellixDNSProviderConfig is a structure that is used to decode into when
 // solving a DNS01 challenge.
 // This information is provided by cert-manager, and may be a reference to
 // additional configuration that's needed to solve the challenge for this
@@ -53,19 +52,20 @@ type ns1DNSProviderSolver struct {
 // This typically includes references to Secret resources containing DNS
 // provider credentials, in cases where a 'multi-tenant' DNS solver is being
 // created.
-type ns1DNSProviderConfig struct {
+type constellixDNSProviderConfig struct {
 	// These fields will be set by users in the
 	// `issuer.spec.acme.dns01.providers.webhook.config` field.
 
-	APIKeySecretRef cmmeta.SecretKeySelector `json:"apiKeySecretRef"`
-	Endpoint        string                   `json:"endpoint"`
-	IgnoreSSL       bool                     `json:"ignoreSSL"`
+	APIKeySecretRef    cmmeta.SecretKeySelector `json:"apiKeySecretRef"`
+	APISecretSecretRef cmmeta.SecretKeySelector `json:"apiSecretSecretRef"`
+	ZoneId             int                      `json:"zoneId"`
+	Insecure           bool                     `json:"insecure"`
 }
 
 // Name is used as the name for this DNS solver when referencing it on the ACME
 // Issuer resource.
-func (c *ns1DNSProviderSolver) Name() string {
-	return "ns1"
+func (c *constellixDNSProviderSolver) Name() string {
+	return "constellix"
 }
 
 // Present is responsible for actually presenting the DNS record with the
@@ -73,34 +73,43 @@ func (c *ns1DNSProviderSolver) Name() string {
 // This method should tolerate being called multiple times with the same value.
 // cert-manager itself will later perform a self check to ensure that the
 // solver has correctly configured the DNS provider.
-func (c *ns1DNSProviderSolver) Present(ch *v1alpha1.ChallengeRequest) error {
+func (c *constellixDNSProviderSolver) Present(ch *v1alpha1.ChallengeRequest) error {
 	cfg, err := loadConfig(ch.Config)
 	if err != nil {
 		return err
 	}
 
-	zone, domain, err := c.parseChallenge(ch)
+	_, domain, err := c.parseChallenge(ch)
 	if err != nil {
 		return err
 	}
 
-	if c.ns1Client == nil {
-		if err := c.setNS1Client(ch, cfg); err != nil {
+	if c.constellixClient == nil {
+		if err := c.setConstellixClient(ch, cfg); err != nil {
 			return err
 		}
 	}
 
 	// Create a TXT Record for domain.zone with answer set to DNS challenge key
 	// Short TTL is fine, as we delete the record after the challenge is solved.
-	record := ns1DNS.NewRecord(zone, domain, "TXT")
-	record.TTL = 600
-	record.AddAnswer(ns1DNS.NewTXTAnswer(ch.Key))
+	TxtAttr := models.TxtAttributes{}
+	TxtAttr.Name = domain
+	TxtAttr.TTL = 60
 
-	_, err = c.ns1Client.Records.Create(record)
+	mapListRR := make([]interface{}, 0, 1)
+
+	tpMap := make(map[string]interface{})
+	tpMap["value"] = fmt.Sprintf("%v", ch.Key)
+	tpMap["disableFlag"] = fmt.Sprintf("%v", "false")
+
+	mapListRR = append(mapListRR, tpMap)
+	TxtAttr.RoundRobin = mapListRR
+
+	id := strconv.Itoa(cfg.ZoneId)
+
+	_, err = c.constellixClient.Save(TxtAttr, "v1/domains/"+id+"/records/txt")
 	if err != nil {
-	  if err != ns1API.ErrRecordExists {
-			return err
-		}
+		return err
 	}
 
 	return nil
@@ -112,27 +121,40 @@ func (c *ns1DNSProviderSolver) Present(ch *v1alpha1.ChallengeRequest) error {
 // value provided on the ChallengeRequest should be cleaned up.
 // This is in order to facilitate multiple DNS validations for the same domain
 // concurrently.
-func (c *ns1DNSProviderSolver) CleanUp(ch *v1alpha1.ChallengeRequest) error {
+func (c *constellixDNSProviderSolver) CleanUp(ch *v1alpha1.ChallengeRequest) error {
 	cfg, err := loadConfig(ch.Config)
 	if err != nil {
 		return err
 	}
 
-	zone, domain, err := c.parseChallenge(ch)
+	_, domain, err := c.parseChallenge(ch)
 	if err != nil {
 		return err
 	}
 
-	if c.ns1Client == nil {
-		if err := c.setNS1Client(ch, cfg); err != nil {
+	if c.constellixClient == nil {
+		if err := c.setConstellixClient(ch, cfg); err != nil {
 			return err
 		}
 	}
 
+	id := strconv.Itoa(cfg.ZoneId)
+
+	response, err := c.constellixClient.GetbyId("v1/domains/" + id + "/records/txt/search?exact=" + domain)
+	if err != nil {
+		return err
+	}
+
+	bodyBytes, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+	bodyString := string(bodyBytes)
+	var data map[string]interface{}
+	_ = json.Unmarshal([]byte(bodyString), &data)
+
 	// Delete the TXT Record we created in Present
-	if _, err = c.ns1Client.Records.Delete(
-		zone, fmt.Sprintf("%s.%s", domain, zone), "TXT",
-	); err != nil {
+	if err = c.constellixClient.DeletebyId("v1/domains/" + id + "/records/txt/" + data["id"].(string)); err != nil {
 		return err
 	}
 
@@ -148,7 +170,7 @@ func (c *ns1DNSProviderSolver) CleanUp(ch *v1alpha1.ChallengeRequest) error {
 // provider accounts.
 // The stopCh can be used to handle early termination of the webhook, in cases
 // where a SIGTERM or similar signal is sent to the webhook process.
-func (c *ns1DNSProviderSolver) Initialize(kubeClientConfig *rest.Config, stopCh <-chan struct{}) error {
+func (c *constellixDNSProviderSolver) Initialize(kubeClientConfig *rest.Config, stopCh <-chan struct{}) error {
 	cl, err := kubernetes.NewForConfig(kubeClientConfig)
 	if err != nil {
 		return err
@@ -159,8 +181,8 @@ func (c *ns1DNSProviderSolver) Initialize(kubeClientConfig *rest.Config, stopCh 
 
 // loadConfig is a small helper function that decodes JSON configuration into
 // the typed config struct.
-func loadConfig(cfgJSON *extapi.JSON) (ns1DNSProviderConfig, error) {
-	cfg := ns1DNSProviderConfig{}
+func loadConfig(cfgJSON *extapi.JSON) (constellixDNSProviderConfig, error) {
+	cfg := constellixDNSProviderConfig{}
 	// handle the 'base case' where no configuration has been provided
 	if cfgJSON == nil {
 		return cfg, nil
@@ -172,57 +194,78 @@ func loadConfig(cfgJSON *extapi.JSON) (ns1DNSProviderConfig, error) {
 	return cfg, nil
 }
 
-func (c *ns1DNSProviderSolver) setNS1Client(ch *v1alpha1.ChallengeRequest, cfg ns1DNSProviderConfig) error {
-	ref := cfg.APIKeySecretRef
-	if ref.Name == "" {
+func (c *constellixDNSProviderSolver) setConstellixClient(ch *v1alpha1.ChallengeRequest, cfg constellixDNSProviderConfig) error {
+	apiKeyRef := cfg.APIKeySecretRef
+	if apiKeyRef.Name == "" {
 		return fmt.Errorf(
 			"secret for NS1 apiKey not found in '%s'",
 			ch.ResourceNamespace,
 		)
 	}
-	if ref.Key == "" {
+	if apiKeyRef.Key == "" {
 		return fmt.Errorf(
 			"no 'key' set in secret '%s/%s'",
 			ch.ResourceNamespace,
-			ref.Name,
+			apiKeyRef.Name,
 		)
 	}
 
 	secret, err := c.k8sClient.CoreV1().Secrets(ch.ResourceNamespace).Get(
-		ref.Name, metav1.GetOptions{},
+		apiKeyRef.Name, metav1.GetOptions{},
 	)
 	if err != nil {
 		return err
 	}
-	apiKeyBytes, ok := secret.Data[ref.Key]
+	apiKeyBytes, ok := secret.Data[apiKeyRef.Key]
 	if !ok {
 		return fmt.Errorf(
 			"no key '%s' in secret '%s/%s'",
-			ref.Key,
+			apiKeyRef.Key,
 			ch.ResourceNamespace,
-			ref.Name,
+			apiKeyRef.Name,
 		)
 	}
 	apiKey := string(apiKeyBytes)
 
-	httpClient := &http.Client{}
-	if cfg.IgnoreSSL == true {
-		tr := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		httpClient.Transport = tr
+	secretKeyRef := cfg.APISecretSecretRef
+	if secretKeyRef.Name == "" {
+		return fmt.Errorf(
+			"secret for Constellix secretKey not found in '%s'",
+			ch.ResourceNamespace,
+		)
 	}
-	c.ns1Client = ns1API.NewClient(
-		httpClient,
-		ns1API.SetAPIKey(apiKey),
-		ns1API.SetEndpoint(cfg.Endpoint),
+	if secretKeyRef.Key == "" {
+		return fmt.Errorf(
+			"no 'key' set in secret '%s/%s'",
+			ch.ResourceNamespace,
+			secretKeyRef.Name,
+		)
+	}
+
+	secret, err = c.k8sClient.CoreV1().Secrets(ch.ResourceNamespace).Get(
+		secretKeyRef.Name, metav1.GetOptions{},
 	)
+	if err != nil {
+		return err
+	}
+	secretKeyBytes, ok := secret.Data[secretKeyRef.Key]
+	if !ok {
+		return fmt.Errorf(
+			"no key '%s' in secret '%s/%s'",
+			secretKeyRef.Key,
+			ch.ResourceNamespace,
+			secretKeyRef.Name,
+		)
+	}
+	secretKey := string(secretKeyBytes)
+
+	c.constellixClient = client.GetClient(apiKey, secretKey, client.Insecure(cfg.Insecure))
 
 	return nil
 }
 
 // Get the zone and domain we are setting from the challenge request
-func (c *ns1DNSProviderSolver) parseChallenge(ch *v1alpha1.ChallengeRequest) (
+func (c *constellixDNSProviderSolver) parseChallenge(ch *v1alpha1.ChallengeRequest) (
 	zone string, domain string, err error,
 ) {
 
@@ -233,7 +276,7 @@ func (c *ns1DNSProviderSolver) parseChallenge(ch *v1alpha1.ChallengeRequest) (
 	}
 	zone = util.UnFqdn(zone)
 
-	if idx := strings.Index(ch.ResolvedFQDN, "." + ch.ResolvedZone); idx != -1 {
+	if idx := strings.Index(ch.ResolvedFQDN, "."+ch.ResolvedZone); idx != -1 {
 		domain = ch.ResolvedFQDN[:idx]
 	} else {
 		domain = util.UnFqdn(ch.ResolvedFQDN)

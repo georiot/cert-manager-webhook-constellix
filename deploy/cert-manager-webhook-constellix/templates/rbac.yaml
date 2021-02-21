@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ include "cert-manager-webhook-ns1.fullname" . }}
+  name: {{ include "cert-manager-webhook-constellix.fullname" . }}
   labels:
-    app: {{ include "cert-manager-webhook-ns1.name" . }}
-    chart: {{ include "cert-manager-webhook-ns1.chart" . }}
+    app: {{ include "cert-manager-webhook-constellix.name" . }}
+    chart: {{ include "cert-manager-webhook-constellix.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 ---
@@ -14,11 +14,11 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "cert-manager-webhook-ns1.fullname" . }}:webhook-authentication-reader
+  name: {{ include "cert-manager-webhook-constellix.fullname" . }}:webhook-authentication-reader
   namespace: kube-system
   labels:
-    app: {{ include "cert-manager-webhook-ns1.name" . }}
-    chart: {{ include "cert-manager-webhook-ns1.chart" . }}
+    app: {{ include "cert-manager-webhook-constellix.name" . }}
+    chart: {{ include "cert-manager-webhook-constellix.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 roleRef:
@@ -28,7 +28,7 @@ roleRef:
 subjects:
   - apiGroup: ""
     kind: ServiceAccount
-    name: {{ include "cert-manager-webhook-ns1.fullname" . }}
+    name: {{ include "cert-manager-webhook-constellix.fullname" . }}
     namespace: {{ .Release.Namespace }}
 ---
 # apiserver gets the auth-delegator role to delegate auth decisions to
@@ -36,10 +36,10 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "cert-manager-webhook-ns1.fullname" . }}:auth-delegator
+  name: {{ include "cert-manager-webhook-constellix.fullname" . }}:auth-delegator
   labels:
-    app: {{ include "cert-manager-webhook-ns1.name" . }}
-    chart: {{ include "cert-manager-webhook-ns1.chart" . }}
+    app: {{ include "cert-manager-webhook-constellix.name" . }}
+    chart: {{ include "cert-manager-webhook-constellix.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 roleRef:
@@ -49,17 +49,17 @@ roleRef:
 subjects:
   - apiGroup: ""
     kind: ServiceAccount
-    name: {{ include "cert-manager-webhook-ns1.fullname" . }}
+    name: {{ include "cert-manager-webhook-constellix.fullname" . }}
     namespace: {{ .Release.Namespace }}
 ---
 # Grant cert-manager permission to validate using our apiserver
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "cert-manager-webhook-ns1.fullname" . }}:domain-solver
+  name: {{ include "cert-manager-webhook-constellix.fullname" . }}:domain-solver
   labels:
-    app: {{ include "cert-manager-webhook-ns1.name" . }}
-    chart: {{ include "cert-manager-webhook-ns1.chart" . }}
+    app: {{ include "cert-manager-webhook-constellix.name" . }}
+    chart: {{ include "cert-manager-webhook-constellix.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 rules:
@@ -70,14 +70,14 @@ rules:
     verbs:
       - 'create'
 ---
-# Grant NS1 webhook permission to read the cert secret
+# Grant Constellix webhook permission to read the cert secret
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "cert-manager-webhook-ns1.fullname" . }}
+  name: {{ include "cert-manager-webhook-constellix.fullname" . }}
   labels:
-    app: {{ include "cert-manager-webhook-ns1.name" . }}
-    chart: {{ include "cert-manager-webhook-ns1.chart" . }}
+    app: {{ include "cert-manager-webhook-constellix.name" . }}
+    chart: {{ include "cert-manager-webhook-constellix.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 rules:
@@ -103,16 +103,16 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "cert-manager-webhook-ns1.fullname" . }}:domain-solver
+  name: {{ include "cert-manager-webhook-constellix.fullname" . }}:domain-solver
   labels:
-    app: {{ include "cert-manager-webhook-ns1.name" . }}
-    chart: {{ include "cert-manager-webhook-ns1.chart" . }}
+    app: {{ include "cert-manager-webhook-constellix.name" . }}
+    chart: {{ include "cert-manager-webhook-constellix.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "cert-manager-webhook-ns1.fullname" . }}:domain-solver
+  name: {{ include "cert-manager-webhook-constellix.fullname" . }}:domain-solver
 subjects:
   - apiGroup: ""
     kind: ServiceAccount
@@ -122,17 +122,17 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "cert-manager-webhook-ns1.fullname" . }}
+  name: {{ include "cert-manager-webhook-constellix.fullname" . }}
   labels:
-    app: {{ include "cert-manager-webhook-ns1.name" . }}
-    chart: {{ include "cert-manager-webhook-ns1.chart" . }}
+    app: {{ include "cert-manager-webhook-constellix.name" . }}
+    chart: {{ include "cert-manager-webhook-constellix.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "cert-manager-webhook-ns1.fullname" . }}
+  name: {{ include "cert-manager-webhook-constellix.fullname" . }}
 subjects:
   - kind: ServiceAccount
-    name: {{ include "cert-manager-webhook-ns1.fullname" . }}
+    name: {{ include "cert-manager-webhook-constellix.fullname" . }}
     namespace: {{ .Release.Namespace }}
