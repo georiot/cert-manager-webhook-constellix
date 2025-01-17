@@ -1,0 +1,35 @@
+name: Publish Helm Chart
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'deploy/**'  # Only trigger when chart files change
+
+jobs:
+  publish:
+    name: Publish Helm Chart to GitHub Pages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.0
+
+      - name: Package Helm Chart
+        run: |
+          mkdir -p packaged-charts
+          helm package deploy/cert-manager-webhook-constellix -d packaged-charts
+
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./packaged-charts
+          publish_branch: gh-pages
+
